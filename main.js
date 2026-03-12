@@ -1,5 +1,25 @@
 const fs = require("fs");
 
+function timeToSeconds(timeString) {
+    const [time, period] = timeString.split(" ");
+    const [h, m, s] = time.split(":");
+
+    let hours = parseInt(h);
+    if (period === "pm" && hours !== 12) {
+        hours += 12;
+    } else if (period === "am" && hours === 12) {
+        hours = 0;
+    }
+    return (hours * 3600) + (parseInt(m) * 60) + parseInt(s);
+}
+
+function secondsToTime(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return hours + ":" + minutes.toString().padStart(2, '0') + ":" + secs.toString().padStart(2, '0');
+}
+
 // ============================================================
 // Function 1: getShiftDuration(startTime, endTime)
 // startTime: (typeof string) formatted as hh:mm:ss am or hh:mm:ss pm
@@ -7,7 +27,40 @@ const fs = require("fs");
 // Returns: string formatted as h:mm:ss
 // ============================================================
 function getShiftDuration(startTime, endTime) {
-    // TODO: Implement this function
+    const [start_time, start_period] = startTime.split(" ");
+    const [end_time, end_period] = endTime.split(" ");
+
+    const [start_h, start_m, start_s] = start_time.split(":");
+    const [end_h, end_m, end_s] = end_time.split(":");
+
+    let start_hours = parseInt(start_h);
+    let end_hours = parseInt(end_h);
+
+    if (start_period === "pm" && start_hours !== 12)
+        start_hours += 12;
+    if (start_period === "am" && start_hours === 12)
+        start_hours = 0;
+    if (end_period === "pm" && end_hours !== 12)
+        end_hours += 12;
+    if (end_period === "am" && end_hours === 12)
+        end_hours = 0;
+
+    const start_seconds = (start_hours * 3600) + (parseInt(start_m) * 60) + parseInt(start_s);
+    const end_seconds = (end_hours * 3600) + (parseInt(end_m) * 60) + parseInt(end_s);
+
+    let duration_seconds;
+    if (end_seconds >= start_seconds) {
+        duration_seconds = end_seconds - start_seconds;
+    }
+    else {
+        duration_seconds = (86400 - start_seconds) + end_seconds;
+    }
+
+    const hours = Math.floor(duration_seconds / 3600);
+    const minutes = Math.floor((duration_seconds % 3600) / 60);
+    const seconds = duration_seconds % 60;
+
+    return hours + ":" + minutes.toString().padStart(2, '0') + ":" + seconds.toString().padStart(2, '0');
 }
 
 // ============================================================
@@ -17,7 +70,48 @@ function getShiftDuration(startTime, endTime) {
 // Returns: string formatted as h:mm:ss
 // ============================================================
 function getIdleTime(startTime, endTime) {
-    // TODO: Implement this function
+    const [start_time, start_period] = startTime.split(" ");
+    const [end_time, end_period] = endTime.split(" ");
+    const [start_h, start_m, start_s] = start_time.split(":");
+    const [end_h, end_m, end_s] = end_time.split(":");
+
+    let start_hours = parseInt(start_h);
+    let end_hours = parseInt(end_h);
+    if (start_period === "pm" && start_hours !== 12) start_hours += 12;
+    if (start_period === "am" && start_hours === 12) start_hours = 0;
+    if (end_period === "pm" && end_hours !== 12) end_hours += 12;
+    if (end_period === "am" && end_hours === 12) end_hours = 0;
+
+    const start_seconds = (start_hours * 3600) + (parseInt(start_m) * 60) + parseInt(start_s);
+    const end_seconds = (end_hours * 3600) + (parseInt(end_m) * 60) + parseInt(end_s);
+
+    const delivery_start = 8 * 3600;  // 28800 seconds
+    const delivery_end = 22 * 3600;   // 79200 seconds
+
+    let idle_seconds = 0;
+
+    if (start_seconds < delivery_start) {
+        idle_seconds += Math.min(delivery_start, end_seconds) - start_seconds;
+    }
+
+    if (end_seconds > delivery_end) {
+        idle_seconds += end_seconds - Math.max(delivery_end, start_seconds);
+    }
+
+    if (end_seconds < start_seconds) {
+        if (start_seconds < delivery_start) {
+            idle_seconds += delivery_start - start_seconds;
+        }
+        if (end_seconds > delivery_end) {
+            idle_seconds += end_seconds - delivery_end;
+        }
+    }
+
+    const hours = Math.floor(idle_seconds / 3600);
+    const minutes = Math.floor((idle_seconds % 3600) / 60);
+    const seconds = idle_seconds % 60;
+
+    return hours + ":" + minutes.toString().padStart(2, '0') + ":" + seconds.toString().padStart(2, '0');
 }
 
 // ============================================================
@@ -27,7 +121,7 @@ function getIdleTime(startTime, endTime) {
 // Returns: string formatted as h:mm:ss
 // ============================================================
 function getActiveTime(shiftDuration, idleTime) {
-    // TODO: Implement this function
+
 }
 
 // ============================================================
@@ -37,7 +131,7 @@ function getActiveTime(shiftDuration, idleTime) {
 // Returns: boolean
 // ============================================================
 function metQuota(date, activeTime) {
-    // TODO: Implement this function
+
 }
 
 // ============================================================
@@ -47,7 +141,7 @@ function metQuota(date, activeTime) {
 // Returns: object with 10 properties or empty object {}
 // ============================================================
 function addShiftRecord(textFile, shiftObj) {
-    // TODO: Implement this function
+
 }
 
 // ============================================================
@@ -59,7 +153,7 @@ function addShiftRecord(textFile, shiftObj) {
 // Returns: nothing (void)
 // ============================================================
 function setBonus(textFile, driverID, date, newValue) {
-    // TODO: Implement this function
+
 }
 
 // ============================================================
@@ -70,7 +164,7 @@ function setBonus(textFile, driverID, date, newValue) {
 // Returns: number (-1 if driverID not found)
 // ============================================================
 function countBonusPerMonth(textFile, driverID, month) {
-    // TODO: Implement this function
+
 }
 
 // ============================================================
@@ -81,7 +175,7 @@ function countBonusPerMonth(textFile, driverID, month) {
 // Returns: string formatted as hhh:mm:ss
 // ============================================================
 function getTotalActiveHoursPerMonth(textFile, driverID, month) {
-    // TODO: Implement this function
+
 }
 
 // ============================================================
@@ -94,7 +188,7 @@ function getTotalActiveHoursPerMonth(textFile, driverID, month) {
 // Returns: string formatted as hhh:mm:ss
 // ============================================================
 function getRequiredHoursPerMonth(textFile, rateFile, bonusCount, driverID, month) {
-    // TODO: Implement this function
+
 }
 
 // ============================================================
@@ -106,7 +200,7 @@ function getRequiredHoursPerMonth(textFile, rateFile, bonusCount, driverID, mont
 // Returns: integer (net pay)
 // ============================================================
 function getNetPay(driverID, actualHours, requiredHours, rateFile) {
-    // TODO: Implement this function
+
 }
 
 module.exports = {
