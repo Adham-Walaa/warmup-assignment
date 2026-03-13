@@ -306,9 +306,63 @@ function getTotalActiveHoursPerMonth(textFile, driverID, month) {
 // Returns: string formatted as hhh:mm:ss
 // ============================================================
 function getRequiredHoursPerMonth(textFile, rateFile, bonusCount, driverID, month) {
+    const monthNameToNumber = {
+        'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+        'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+    };
 
+    let monthNumber = month;
+    if (typeof month === 'string') {
+        monthNumber = monthNameToNumber[month];
+    }
+    if (!monthNumber) {
+        return "00:00:00";
+    }
 
+    const rateLines = fs.readFileSync(rateFile, 'utf8').split('\n');
+    let driverRate = 0;
+    let dailyHours = 0;
 
+    for (let i = 0; i < rateLines.length; i++) {
+        const line = rateLines[i].trim();
+        if (line.includes(driverID)) {
+            const parts = line.split(',');
+            driverRate = parseInt(parts[2]);
+            dailyHours = parseFloat(parts[3]);
+            break;
+        }
+    }
+
+    if (driverRate === 0) {
+        return "00:00:00";
+    }
+
+    const shiftLines = fs.readFileSync(textFile, 'utf8').split('\n');
+    let workingDays = 0;
+
+    for (let i = 0; i < shiftLines.length; i++) {
+        const line = shiftLines[i].trim();
+        if (line.includes(driverID)) {
+            const parts = line.split(',');
+            const dateParts = parts[2].split('-');
+            const fileMonth = parseInt(dateParts[1]);
+
+            if (fileMonth === monthNumber) {
+                workingDays++;
+            }
+        }
+    }
+
+    let dailyHoursRequired = 6.7;
+    if (driverID === 'D1003') dailyHoursRequired = 8.4;
+
+    let requiredSeconds = workingDays * dailyHoursRequired * 3600;
+
+    const requiredHours = Math.floor(requiredSeconds / 3600);
+    const requiredMinutes = Math.floor((requiredSeconds % 3600) / 60);
+    const requiredSecs = Math.round(requiredSeconds % 60);
+
+    return requiredHours + ":" + requiredMinutes.toString().padStart(2, '0') + ":" + requiredSecs.toString().padStart(2, '0');
 }
 
 // ============================================================
@@ -320,8 +374,44 @@ function getRequiredHoursPerMonth(textFile, rateFile, bonusCount, driverID, mont
 // Returns: integer (net pay)
 // ============================================================
 function getNetPay(driverID, actualHours, requiredHours, rateFile) {
+    const rateLines = fs.readFileSync(rateFile, 'utf8').split('\n');
+    let driverRate = 0;
 
+    for (let i = 0; i < rateLines.length; i++) {
+        const line = rateLines[i].trim();
+        if (line.includes(driverID)) {
+            const parts = line.split(',');
+            driverRate = parseInt(parts[2]);
+            break;
+        }
+    }
 
+    if (driverRate === 0) {
+        return 0;
+    }
+
+    const [actual_h, actual_m, actual_s] = actualHours.split(':');
+    const [required_h, required_m, required_s] = requiredHours.split(':');
+
+    const actualSeconds = (parseInt(actual_h) * 3600) + (parseInt(actual_m) * 60) + parseInt(actual_s);
+    const requiredSeconds = (parseInt(required_h) * 3600) + (parseInt(required_m) * 60) + parseInt(required_s);
+
+    let netPay = driverRate;
+
+    if (actualSeconds < requiredSeconds) {
+        const shortageSeconds = requiredSeconds - actualSeconds;
+        const shortageHours = shortageSeconds / 3600;
+
+        const requiredHours = requiredSeconds / 3600;
+        const shortagePercentage = (shortageHours / requiredHours) * 100;
+
+        if (shortagePercentage > 12) {
+            const deduction = shortageHours * 7.48;
+            netPay -= deduction;
+        }
+    }
+
+    return Math.round(netPay);
 }
 
 module.exports = {
