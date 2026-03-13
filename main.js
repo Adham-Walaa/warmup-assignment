@@ -27,14 +27,41 @@ function secondsToTime(seconds) {
 // Returns: string formatted as h:mm:ss
 // ============================================================
 function getShiftDuration(startTime, endTime) {
-    const [start_time, start_period] = startTime.split(" ");
-    const [end_time, end_period] = endTime.split(" ");
+    if (!startTime || !endTime || typeof startTime !== 'string' || typeof endTime !== 'string') {
+        return "00:00:00";
+    }
+    
+    try {
+        const [start_time, start_period] = startTime.split(" ");
+        const [end_time, end_period] = endTime.split(" ");
 
-    const [start_h, start_m, start_s] = start_time.split(":");
-    const [end_h, end_m, end_s] = end_time.split(":");
+        if (!start_time || !start_period || !end_time || !end_period) {
+            return "00:00:00";
+        }
 
-    let start_hours = parseInt(start_h);
-    let end_hours = parseInt(end_h);
+        if (start_period !== "am" && start_period !== "pm" ||
+            end_period !== "am" && end_period !== "pm") {
+            return "00:00:00";
+        }
+
+        const [start_h, start_m, start_s] = start_time.split(":");
+        const [end_h, end_m, end_s] = end_time.split(":");
+
+        if (isNaN(parseInt(start_h)) || isNaN(parseInt(end_h)) ||
+            isNaN(parseInt(start_m)) || isNaN(parseInt(end_m)) ||
+            isNaN(parseInt(start_s)) || isNaN(parseInt(end_s))) {
+            return "00:00:00";
+        }
+
+        if (parseInt(start_h) < 0 || parseInt(start_h) > 23 ||
+            parseInt(end_h) < 0 || parseInt(end_h) > 23 ||
+            parseInt(start_m) < 0 || parseInt(start_m) > 59 ||
+            parseInt(start_s) < 0 || parseInt(start_s) > 59) {
+            return "00:00:00";
+        }
+
+        let start_hours = parseInt(start_h);
+        let end_hours = parseInt(end_h);
 
     if (start_period === "pm" && start_hours !== 12)
         start_hours += 12;
@@ -61,6 +88,9 @@ function getShiftDuration(startTime, endTime) {
     const seconds = duration_seconds % 60;
 
     return hours + ":" + minutes.toString().padStart(2, '0') + ":" + seconds.toString().padStart(2, '0');
+    } catch (error) {
+        return "00:00:00";
+    }
 }
 
 // ============================================================
@@ -121,6 +151,10 @@ function getIdleTime(startTime, endTime) {
 // Returns: string formatted as h:mm:ss
 // ============================================================
 function getActiveTime(shiftDuration, idleTime) {
+    if (!shiftDuration || !idleTime || typeof shiftDuration !== 'string' || typeof idleTime !== 'string') {
+        return "00:00:00";
+    }
+    
     const [shift_h, shift_m, shift_s] = shiftDuration.split(":");
     const [idle_h, idle_m, idle_s] = idleTime.split(":");
 
@@ -143,6 +177,10 @@ function getActiveTime(shiftDuration, idleTime) {
 // Returns: boolean
 // ============================================================
 function metQuota(date, activeTime) {
+    if (!date || !activeTime || typeof date !== 'string' || typeof activeTime !== 'string') {
+        return false;
+    }
+    
     const [hours, minutes, seconds] = activeTime.split(":");
     const active_seconds = (parseInt(hours) * 3600) + (parseInt(minutes) * 60) + parseInt(seconds);
 
@@ -306,6 +344,12 @@ function getTotalActiveHoursPerMonth(textFile, driverID, month) {
 // Returns: string formatted as hhh:mm:ss
 // ============================================================
 function getRequiredHoursPerMonth(textFile, rateFile, bonusCount, driverID, month) {
+    if (!textFile || !rateFile || !driverID || month === null || month === undefined ||
+        typeof textFile !== 'string' || typeof rateFile !== 'string' || 
+        typeof driverID !== 'string' || (typeof month !== 'string' && typeof month !== 'number')) {
+        return "00:00:00";
+    }
+    
     const monthNameToNumber = {
         'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
         'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
@@ -313,56 +357,61 @@ function getRequiredHoursPerMonth(textFile, rateFile, bonusCount, driverID, mont
 
     let monthNumber = month;
     if (typeof month === 'string') {
-        monthNumber = monthNameToNumber[month];
+        const cleanMonth = month.trim();
+        monthNumber = monthNameToNumber[cleanMonth.charAt(0).toUpperCase() + cleanMonth.slice(1).toLowerCase()];
     }
     if (!monthNumber) {
         return "00:00:00";
     }
 
-    const rateLines = fs.readFileSync(rateFile, 'utf8').split('\n');
-    let driverRate = 0;
-    let dailyHours = 0;
+    try {
+        const rateLines = fs.readFileSync(rateFile, 'utf8').split('\n');
+        let driverRate = 0;
+        let dailyHours = 0;
 
-    for (let i = 0; i < rateLines.length; i++) {
-        const line = rateLines[i].trim();
-        if (line.includes(driverID)) {
-            const parts = line.split(',');
-            driverRate = parseInt(parts[2]);
-            dailyHours = parseFloat(parts[3]);
-            break;
-        }
-    }
-
-    if (driverRate === 0) {
-        return "00:00:00";
-    }
-
-    const shiftLines = fs.readFileSync(textFile, 'utf8').split('\n');
-    let workingDays = 0;
-
-    for (let i = 0; i < shiftLines.length; i++) {
-        const line = shiftLines[i].trim();
-        if (line.includes(driverID)) {
-            const parts = line.split(',');
-            const dateParts = parts[2].split('-');
-            const fileMonth = parseInt(dateParts[1]);
-
-            if (fileMonth === monthNumber) {
-                workingDays++;
+        for (let i = 0; i < rateLines.length; i++) {
+            const line = rateLines[i].trim();
+            if (line.includes(driverID)) {
+                const parts = line.split(',');
+                driverRate = parseInt(parts[2]);
+                dailyHours = parseFloat(parts[3]);
+                break;
             }
         }
+
+        if (driverRate === 0) {
+            return "00:00:00";
+        }
+
+        const shiftLines = fs.readFileSync(textFile, 'utf8').split('\n');
+        let workingDays = 0;
+
+        for (let i = 0; i < shiftLines.length; i++) {
+            const line = shiftLines[i].trim();
+            if (line.includes(driverID)) {
+                const parts = line.split(',');
+                const dateParts = parts[2].split('-');
+                const fileMonth = parseInt(dateParts[1]);
+
+                if (fileMonth === monthNumber) {
+                    workingDays++;
+                }
+            }
+        }
+
+        let dailyHoursRequired = 6.7;
+        if (driverID === 'D1003') dailyHoursRequired = 8.4;
+
+        let requiredSeconds = workingDays * dailyHoursRequired * 3600;
+
+        const requiredHours = Math.floor(requiredSeconds / 3600);
+        const requiredMinutes = Math.floor((requiredSeconds % 3600) / 60);
+        const requiredSecs = Math.round(requiredSeconds % 60);
+
+        return requiredHours + ":" + requiredMinutes.toString().padStart(2, '0') + ":" + requiredSecs.toString().padStart(2, '0');
+    } catch (error) {
+        return "00:00:00";
     }
-
-    let dailyHoursRequired = 6.7;
-    if (driverID === 'D1003') dailyHoursRequired = 8.4;
-
-    let requiredSeconds = workingDays * dailyHoursRequired * 3600;
-
-    const requiredHours = Math.floor(requiredSeconds / 3600);
-    const requiredMinutes = Math.floor((requiredSeconds % 3600) / 60);
-    const requiredSecs = Math.round(requiredSeconds % 60);
-
-    return requiredHours + ":" + requiredMinutes.toString().padStart(2, '0') + ":" + requiredSecs.toString().padStart(2, '0');
 }
 
 // ============================================================
@@ -374,7 +423,14 @@ function getRequiredHoursPerMonth(textFile, rateFile, bonusCount, driverID, mont
 // Returns: integer (net pay)
 // ============================================================
 function getNetPay(driverID, actualHours, requiredHours, rateFile) {
-    const rateLines = fs.readFileSync(rateFile, 'utf8').split('\n');
+     if (!driverID || !actualHours || !requiredHours || !rateFile ||
+        typeof driverID !== 'string' || typeof actualHours !== 'string' || 
+        typeof requiredHours !== 'string' || typeof rateFile !== 'string') {
+        return 0;
+    }
+    
+    try {
+        const rateLines = fs.readFileSync(rateFile, 'utf8').split('\n');
     let driverRate = 0;
 
     for (let i = 0; i < rateLines.length; i++) {
@@ -412,6 +468,9 @@ function getNetPay(driverID, actualHours, requiredHours, rateFile) {
     }
 
     return Math.round(netPay);
+    } catch (error) {
+        return 0;
+    }
 }
 
 module.exports = {
